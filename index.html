@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>バトルエンチャント</title>
+<style>
+/* ===== RESET & ROOT ===== */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0a0a1a;--panel:#111128;--border:#2a2a4a;
+  --accent:#7c5cfc;--gold:#f5c842;--sub:#8888aa;--text:#e8e8ff;
+  --red:#ff3344;--blue:#2299ff;--r:12px;--r2:20px;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
+  color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;touch-action:manipulation;}
+
+/* ===== SCREENS ===== */
+.screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;z-index:1;}
+.screen.active{display:flex;}
+@keyframes scr-in{from{opacity:0;transform:scale(.97) translateY(6px);}to{opacity:1;transform:none;}}
+.scr-in{animation:scr-in .3s ease forwards;}
+
+/* ===== BUTTONS ===== */
+button{
+  touch-action:manipulation;cursor:pointer;border:none;
+  font-family:inherit;font-weight:700;letter-spacing:.4px;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  transition:transform .1s,opacity .15s;
+  -webkit-user-select:none;user-select:none;
+  position:relative;overflow:hidden;
+}
+button:active{transform:scale(.9)!important;opacity:.8;}
+button::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,.12);
+  opacity:0;transition:opacity .08s;}
+button:active::after{opacity:1;}
+
+.btn      {padding:14px 24px;border-radius:var(--r2);font-size:15px;width:100%;}
+.btn-sm   {padding:10px 16px;font-size:13px;border-radius:var(--r);}
+.btn-xs   {padding:6px 11px;font-size:11px;border-radius:8px;}
+.primary  {background:linear-gradient(135deg,#7c5cfc,#a855f7);color:#fff;box-shadow:0 4px 18px rgba(124,92,252,.4);}
+.secondary{background:var(--panel);color:var(--text);border:1.5px solid var(--border);}
+.success  {background:linear-gradient(135deg,#22cc66,#11aa44);color:#fff;box-shadow:0 4px 16px rgba(34,204,102,.35);}
+.danger   {background:linear-gradient(135deg,#ff3344,#cc1122);color:#fff;}
+.ghost    {background:transparent;color:var(--sub);border:1px solid var(--border);}
+
+/* ===== INPUT ===== */
+input{
+  background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r);
+  color:var(--text);padding:12px 15px;font-size:15px;width:100%;outline:none;
+  font-family:inherit;touch-action:manipulation;
+  -webkit-user-select:auto;user-select:auto;
+}
+input:focus{border-color:var(--accent);}
+
+/* ===== DIVIDER ===== */
+.divider{display:flex;align-items:center;gap:10px;color:var(--sub);font-size:12px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ===== PORTRAIT WARNING ===== */
+.p-warn{display:none;position:fixed;inset:0;z-index:9999;background:#000;
+  align-items:center;justify-content:center;flex-direction:column;gap:16px;text-align:center;padding:20px;}
+@media(orientation:portrait){.p-warn{display:flex;}}
+
+/* =====================================================
+   TITLE SCREEN
+===================================================== */
+#title{align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 50%,#0f0a2a 0%,#05050f 100%);}
+
+.idle-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+.idle-ring{position:absolute;top:50%;left:50%;border-radius:50%;border:2px solid;
+  animation:ring-spin linear infinite;}
+.idle-ring:nth-child(1){width:200px;height:200px;border-color:rgba(168,85,247,.22);animation-duration:9s;}
+.idle-ring:nth-child(2){width:350px;height:350px;border-color:rgba(78,205,196,.15);animation-duration:14s;animation-direction:reverse;}
+.idle-ring:nth-child(3){width:520px;height:520px;border-color:rgba(255,107,107,.1);animation-duration:21s;}
+@keyframes ring-spin{from{transform:translate(-50%,-50%) rotate(0deg);}to{transform:translate(-50%,-50%) rotate(360deg);}}
+
+.idle-core{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:64px;height:64px;border-radius:50%;
+  background:radial-gradient(circle,rgba(168,85,247,.85),rgba(78,205,196,.3));
+  box-shadow:0 0 32px rgba(168,85,247,.65),0 0 80px rgba(168,85,247,.22);
+  animation:core-pulse 2.3s ease-in-out infinite;}
+@keyframes core-pulse{0%,100%{transform:translate(-50%,-50%) scale(1);}50%{transform:translate(-50%,-50%) scale(1.2);}}
+
+.idle-star{position:absolute;font-size:18px;animation:star-float 4s ease-in-out infinite;pointer-events:none;}
+@keyframes star-float{0%,100%{transform:translateY(0) scale(1);opacity:.55;}50%{transform:translateY(-18px) scale(1.2);opacity:1;}}
+
+.title-content{position:relative;display:flex;flex-direction:column;align-items:center;gap:22px;}
+.title-sub{font-size:11px;color:var(--sub);letter-spacing:7px;text-transform:uppercase;}
+.title-logo{font-size:clamp(26px,7vw,54px);font-weight:900;letter-spacing:3px;
+  background:linear-gradient(135deg,#ff6b6b,#ffd93d,#6bcb77,#4ecdc4,#a855f7);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:logo-pulse 3s ease-in-out infinite;pointer-events:none;}
+@keyframes logo-pulse{0%,100%{filter:drop-shadow(0 0 14px rgba(168,85,247,.5));}50%{filter:drop-shadow(0 0 34px rgba(168,85,247,.9));}}
+.title-btns{display:flex;flex-direction:column;gap:10px;width:min(230px,68vw);}
+
+/* =====================================================
+   CENTER-BOX SCREENS  (name, room)
+===================================================== */
+.cbox-screen{align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 50%,#0f0a2a,#05050f);}
+.cbox{background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r2);
+  padding:28px 22px;width:min(370px,90vw);display:flex;flex-direction:column;gap:13px;}
+.cbox h2{font-size:19px;font-weight:800;text-align:center;margin-bottom:2px;}
+
+/* =====================================================
+   CHAR SELECT
+===================================================== */
+#charSelect{background:var(--bg);}
+
+.cs-head{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 13px;background:var(--panel);border-bottom:1.5px solid var(--border);flex-shrink:0;}
+.cs-head-left h2{font-size:14px;font-weight:800;margin:0;}
+.cs-head-left p{font-size:11px;color:var(--sub);margin:0;}
+.cs-head-right{display:flex;align-items:center;gap:8px;}
+#cs-sel-label{font-size:11px;color:var(--accent);max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+.cs-grid{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:10px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;}
+
+.cc{background:var(--panel);border:2px solid var(--border);border-radius:var(--r);
+  padding:10px 9px;display:flex;flex-direction:column;gap:4px;
+  transition:border-color .18s,box-shadow .18s;}
+.cc.sel{border-color:var(--accent);background:rgba(124,92,252,.07);box-shadow:0 0 12px rgba(124,92,252,.3);}
+.cc-orb{width:46px;height:46px;border-radius:50%;margin:0 auto 3px;flex-shrink:0;}
+.cc-name{font-size:13px;font-weight:700;text-align:center;}
+.cc-role{font-size:10px;color:var(--sub);text-align:center;}
+.cc-attr{font-size:10px;text-align:center;margin-top:1px;}
+.cc-spells{font-size:10px;color:var(--sub);text-align:center;line-height:1.4;}
+.cc-btns{display:flex;gap:5px;margin-top:6px;}
+.cc-btns .cb{flex:1;padding:7px 2px;font-size:11px;border-radius:7px;touch-action:manipulation;}
+
+/* =====================================================
+   DETAIL MODAL
+===================================================== */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:200;
+  display:none;align-items:center;justify-content:center;padding:14px;
+  touch-action:manipulation;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r2);
+  padding:20px;width:min(450px,94vw);max-height:84vh;overflow-y:auto;
+  animation:scr-in .2s ease;}
+.modal-box h3{font-size:16px;font-weight:800;text-align:center;margin-bottom:12px;}
+.modal-orb{width:56px;height:56px;border-radius:50%;margin:0 auto 13px;}
+.spell-card{background:rgba(255,255,255,.04);border-radius:var(--r);padding:10px;margin-bottom:7px;}
+.spell-tag{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;}
+.spell-name{font-size:14px;font-weight:700;margin:2px 0 1px;}
+.spell-desc{font-size:12px;color:var(--sub);line-height:1.45;}
+.stat-line{display:flex;justify-content:space-between;align-items:center;
+  padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.stat-line:last-child{border:none;}
+
+/* =====================================================
+   LOBBY
+===================================================== */
+#lobby{background:var(--bg);}
+.lob-head{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 13px;background:var(--panel);border-bottom:1.5px solid var(--border);flex-shrink:0;}
+.lob-head h2{font-size:15px;font-weight:800;}
+.lob-meta{font-size:12px;color:var(--sub);}
+.lob-body{flex:1;display:grid;grid-template-columns:1fr 178px;overflow:hidden;}
+.lob-list{padding:10px;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:7px;}
+.lob-side{padding:10px;display:flex;flex-direction:column;gap:8px;
+  border-left:1.5px solid var(--border);overflow-y:auto;}
+
+.p-row{display:flex;align-items:center;gap:8px;padding:9px 10px;
+  background:rgba(255,255,255,.04);border-radius:var(--r);border:1px solid var(--border);}
+.p-orb{width:32px;height:32px;border-radius:50%;flex-shrink:0;}
+.p-info{flex:1;min-width:0;}
+.p-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.p-char{font-size:11px;color:var(--sub);}
+.p-tag{font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:3px;vertical-align:middle;}
+.tag-host{background:var(--gold);color:#000;}
+.tag-cpu{background:#444;color:#ccc;}
+
+.team-tog{display:flex;border-radius:7px;overflow:hidden;flex-shrink:0;}
+.team-tog button{padding:5px 9px;font-size:11px;font-weight:700;touch-action:manipulation;}
+.tr{background:rgba(255,51,68,.2);color:var(--red);}
+.tr.on{background:var(--red);color:#fff;}
+.tb{background:rgba(34,153,255,.2);color:var(--blue);}
+.tb.on{background:var(--blue);color:#fff;}
+
+.code-box{background:rgba(255,255,255,.05);border-radius:var(--r);padding:10px;text-align:center;}
+.code-val{font-size:20px;font-weight:900;letter-spacing:4px;color:var(--gold);}
+.code-lbl{font-size:10px;color:var(--sub);margin-bottom:2px;}
+
+/* =====================================================
+   INTRO (team reveal)
+===================================================== */
+#intro{background:#000;}
+.intro-wrap{display:flex;width:100%;height:100%;position:relative;}
+.i-team{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;}
+.i-team.red {background:rgba(255,51,68,.12);animation:slide-l .65s ease both;}
+.i-team.blue{background:rgba(34,153,255,.12);animation:slide-r .65s ease both;}
+@keyframes slide-l{from{opacity:0;transform:translateX(-55px);}to{opacity:1;transform:none;}}
+@keyframes slide-r{from{opacity:0;transform:translateX( 55px);}to{opacity:1;transform:none;}}
+.i-vs{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:clamp(40px,10vw,72px);font-weight:900;color:#fff;
+  text-shadow:0 0 40px rgba(255,255,255,.5);pointer-events:none;}
+.i-member{display:flex;align-items:center;gap:8px;}
+.i-orb{width:28px;height:28px;border-radius:50%;flex-shrink:0;}
+.i-mname{font-size:14px;font-weight:700;}
+.round-label{position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);display:none;
+  font-size:clamp(42px,12vw,88px);font-weight:900;color:#fff;
+  text-shadow:0 0 50px rgba(255,255,255,.7);
+  animation:rl-pop .85s ease both;}
+@keyframes rl-pop{0%{opacity:0;transform:translate(-50%,-50%) scale(1.6);}100%{opacity:1;transform:translate(-50%,-50%) scale(1);}}
+
+/* =====================================================
+   BATTLE
+===================================================== */
+#battle{background:#0c0c1e;}
+#bcanvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+
+/* HUD */
+.hud{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;}
+.hud-top{display:flex;align-items:flex-start;justify-content:space-between;
+  padding:8px 10px;background:linear-gradient(rgba(0,0,0,.68),transparent);}
+.hp-group{display:flex;flex-direction:column;gap:3px;}
+.hp-group.right{align-items:flex-end;}
+.hp-bar-row{display:flex;flex-direction:column;gap:2px;}
+.hp-lbl{font-size:10px;font-weight:700;}
+.hp-track{width:128px;height:6px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden;}
+.hp-fill{height:100%;border-radius:3px;transition:width .22s;}
+.hud-center{display:flex;flex-direction:column;align-items:center;padding-top:2px;}
+.hud-round{font-size:11px;font-weight:800;letter-spacing:2px;color:rgba(255,255,255,.75);}
+.hud-timer{font-size:22px;font-weight:900;color:#fff;line-height:1.1;}
+
+.hud-bottom{position:absolute;bottom:0;left:0;right:0;
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px;
+  background:linear-gradient(transparent,rgba(0,0,0,.78));
+  pointer-events:all;}
+
+/* Joystick */
+.stick-wrap{display:flex;align-items:flex-end;}
+.stick-zone{width:112px;height:112px;border-radius:50%;position:relative;
+  background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.14);
+  touch-action:none;}
+.stick-knob{position:absolute;width:44px;height:44px;border-radius:50%;
+  background:rgba(255,255,255,.3);top:50%;left:50%;transform:translate(-50%,-50%);}
+
+/* Skill buttons */
+.skills-wrap{display:flex;flex-direction:column;gap:5px;align-items:flex-end;}
+.skill-row{display:flex;gap:5px;justify-content:flex-end;}
+.skbtn{border-radius:50%;border:3px solid rgba(255,255,255,.22);background:rgba(0,0,0,.5);
+  pointer-events:all;touch-action:manipulation;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;color:#fff;line-height:1.2;text-align:center;
+  transition:transform .08s,opacity .1s;}
+.skbtn:active{transform:scale(.85)!important;}
+.skbtn.cd{opacity:.42;}
+.sk-n{width:52px;height:52px;}
+.sk-s{width:52px;height:52px;}
+.sk-u{width:66px;height:66px;font-size:10px;}
+
+/* Minimap */
+.minimap{position:absolute;top:8px;right:8px;width:78px;height:78px;
+  border-radius:8px;border:1px solid rgba(255,255,255,.18);overflow:hidden;}
+
+/* Flash */
+.b-flash{position:absolute;inset:0;pointer-events:none;opacity:0;background:#fff;}
+
+/* Respawn */
+.respawn-overlay{position:absolute;inset:0;background:rgba(0,0,0,.72);
+  display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;}
+.respawn-overlay.show{display:flex;}
+.respawn-cnt{font-size:60px;font-weight:900;color:#fff;line-height:1;}
+
+/* =====================================================
+   RESULT
+===================================================== */
+#result{align-items:center;justify-content:center;background:#000;}
+.res-wrap{display:flex;flex-direction:column;align-items:center;
+  width:min(580px,96vw);padding:16px;gap:14px;}
+.res-win{font-size:clamp(20px,5vw,42px);font-weight:900;text-align:center;
+  animation:scr-in .5s ease both;}
+.res-teams{display:flex;gap:10px;width:100%;}
+.res-col{flex:1;display:flex;flex-direction:column;gap:5px;}
+.res-col-head{font-size:12px;font-weight:800;padding:6px 8px;border-radius:8px;text-align:center;}
+.res-prow{display:flex;align-items:center;gap:7px;padding:7px;
+  background:rgba(255,255,255,.05);border-radius:8px;}
+.res-orb{width:26px;height:26px;border-radius:50%;flex-shrink:0;}
+.res-name{font-size:12px;font-weight:700;flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.res-kd{font-size:11px;color:var(--sub);white-space:nowrap;}
+
+/* =====================================================
+   EXP SCREEN
+===================================================== */
+#expScreen{align-items:center;justify-content:center;background:#000;}
+.exp-box{background:var(--panel);border:1.5px solid var(--border);border-radius:var(--r2);
+  padding:28px 22px;width:min(340px,88vw);display:flex;flex-direction:column;
+  gap:13px;align-items:center;}
+.exp-title{font-size:21px;font-weight:900;color:var(--gold);}
+.exp-lv{font-size:34px;font-weight:900;color:var(--gold);}
+.exp-bar{width:100%;background:rgba(255,255,255,.1);border-radius:8px;height:16px;overflow:hidden;}
+.exp-fill{height:100%;background:linear-gradient(90deg,#f5c842,#ff9500);
+  border-radius:8px;width:0%;transition:width 1.5s ease;}
+.exp-got{font-size:20px;font-weight:800;color:var(--gold);}
+.exp-lvup{font-size:13px;color:#22cc66;font-weight:700;min-height:18px;}
+
+@media(prefers-reduced-motion:reduce){*,::before,::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}
+</style>
+</head>
+<body>
+
+<!-- Portrait warning -->
+<div class="p-warn">
+  <div style="font-size:52px">📱↺</div>
+  <div style="font-size:18px;font-weight:800">横画面推奨</div>
+  <div style="font-size:13px;color:#888">デバイスを横向きにしてください</div>
+</div>
+
+<!-- ==================== TITLE ==================== -->
+<div id="title" class="screen active">
+  <div class="idle-bg">
+    <div class="idle-ring"></div>
+    <div class="idle-ring"></div>
+    <div class="idle-ring"></div>
+    <div class="idle-core"></div>
+    <span class="idle-star" style="top:17%;left:12%;animation-delay:0s">✨</span>
+    <span class="idle-star" style="top:27%;right:15%;animation-delay:.9s">⭐</span>
+    <span class="idle-star" style="bottom:21%;left:19%;animation-delay:1.7s">✨</span>
+    <span class="idle-star" style="bottom:17%;right:10%;animation-delay:.4s">⭐</span>
+    <span class="idle-star" style="top:11%;left:43%;animation-delay:2.2s">✨</span>
+  </div>
+  <div class="title-content">
+    <div class="title-sub">2D MAGIC BATTLE</div>
+    <div class="title-logo">⚔ BATTLE ENCHANT ✨</div>
+    <div class="title-btns">
+      <button class="btn primary" onclick="goToName()">対戦をはじめる</button>
+      <button class="btn secondary btn-sm" onclick="alert('準備中です')">設定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== NAME INPUT ==================== -->
+<div id="nameInput" class="screen cbox-screen">
+  <div class="cbox">
+    <h2>🧙 プレイヤー名を入力</h2>
+    <input id="pname-in" type="text" placeholder="名前（8文字以内）" maxlength="8" autocomplete="off" inputmode="text">
+    <button class="btn primary" onclick="confirmName()">次へ →</button>
+    <button class="btn ghost btn-sm" onclick="goScreen('title')">← タイトルへ</button>
+  </div>
+</div>
+
+<!-- ==================== ROOM SELECT ==================== -->
+<div id="roomSelect" class="screen cbox-screen">
+  <div class="cbox">
+    <h2>🚪 ルームを選択</h2>
+    <button class="btn primary" onclick="createRoom()">🏠 部屋を作る</button>
+    <div class="divider">または</div>
+    <input id="join-code" type="text" placeholder="ルームコードを入力"
+      maxlength="6" style="text-align:center;letter-spacing:4px;font-size:18px;"
+      oninput="this.value=this.value.toUpperCase()" inputmode="text">
+    <button class="btn secondary" onclick="joinRoom()">🚪 部屋に入る</button>
+    <button class="btn ghost btn-sm" onclick="goScreen('nameInput')">← 戻る</button>
+  </div>
+</div>
+
+<!-- ==================== CHAR SELECT ==================== -->
+<div id="charSelect" class="screen">
+  <div class="cs-head">
+    <div class="cs-head-left">
+      <p>キャラクターを選んで装備しよう</p>
+      <h2>キャラクター選択</h2>
+    </div>
+    <div class="cs-head-right">
+      <span id="cs-sel-label">未装備</span>
+      <button class="btn success btn-sm" onclick="confirmChar()">決定 →</button>
+    </div>
+  </div>
+  <div class="cs-grid" id="cs-grid"></div>
+</div>
+
+<!-- ==================== LOBBY ==================== -->
+<div id="lobby" class="screen">
+  <div class="lob-head">
+    <h2>🏟 ロビー</h2>
+    <div class="lob-meta">👥 <span id="lob-cnt">1</span>人 &nbsp;|&nbsp; <span id="lob-st">待機中</span></div>
+  </div>
+  <div class="lob-body">
+    <div class="lob-list" id="lob-list"></div>
+    <div class="lob-side">
+      <div class="code-box">
+        <div class="code-lbl">ルームコード</div>
+        <div class="code-val" id="lob-code">------</div>
+      </div>
+      <button class="btn secondary btn-sm" onclick="goToCharSelect()">🔄 キャラ変更</button>
+      <button class="btn secondary btn-sm" onclick="addCPU()">🤖 CPUを追加</button>
+      <button id="start-btn" class="btn success btn-sm" onclick="startGame()" style="display:none;">▶ 始める</button>
+      <button class="btn danger btn-sm" onclick="leaveRoom()">🚪 退出</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== INTRO ==================== -->
+<div id="intro" class="screen">
+  <div class="intro-wrap">
+    <div id="i-red"  class="i-team red"></div>
+    <div id="i-blue" class="i-team blue"></div>
+    <div class="i-vs">VS</div>
+    <div class="round-label" id="round-label"></div>
+  </div>
+</div>
+
+<!-- ==================== BATTLE ==================== -->
+<div id="battle" class="screen">
+  <canvas id="bcanvas"></canvas>
+  <div class="hud">
+    <div class="hud-top">
+      <div class="hp-group" id="hp-red"></div>
+      <div class="hud-center">
+        <div class="hud-round" id="hud-round">ROUND 1</div>
+        <div class="hud-timer" id="hud-timer">2:00</div>
+      </div>
+      <div class="hp-group right" id="hp-blue"></div>
+    </div>
+    <canvas class="minimap" id="mmap" width="78" height="78"></canvas>
+    <div class="b-flash" id="b-flash"></div>
+    <div class="hud-bottom">
+      <div class="stick-wrap">
+        <div class="stick-zone" id="stick-zone">
+          <div class="stick-knob" id="stick-knob"></div>
+        </div>
+      </div>
+      <div class="skills-wrap" id="skills-wrap"></div>
+    </div>
+  </div>
+  <div class="respawn-overlay" id="respawn-ov">
+    <div style="font-size:14px;color:rgba(255,255,255,.7)">リスポーンまで</div>
+    <div class="respawn-cnt" id="respawn-cnt">8</div>
+    <div style="font-size:14px;color:rgba(255,255,255,.7)">秒</div>
+  </div>
+</div>
+
+<!-- ==================== RESULT ==================== -->
+<div id="result" class="screen">
+  <div class="res-wrap">
+    <div class="res-win" id="res-win"></div>
+    <div class="res-teams" id="res-teams"></div>
+    <button class="btn primary" style="width:200px;" onclick="goToExp()">次へ →</button>
+  </div>
+</div>
+
+<!-- ==================== EXP ==================== -->
+<div id="expScreen" class="screen">
+  <div class="exp-box">
+    <div class="exp-title">⭐ 獲得EXP</div>
+    <div class="exp-lv" id="exp-lv">Lv.1</div>
+    <div class="exp-bar"><div class="exp-fill" id="exp-fill"></div></div>
+    <div class="exp-got" id="exp-got"></div>
+    <div class="exp-lvup" id="exp-lvup"></div>
+    <button class="btn primary" style="width:100%;margin-top:6px;" onclick="backToLobby()">部屋に戻る →</button>
+  </div>
+</div>
+
+<!-- ==================== DETAIL MODAL ==================== -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal-box" id="modal-box">
+    <h3 id="m-title"></h3>
+    <div class="modal-orb" id="m-orb"></div>
+    <div id="m-body"></div>
+    <button class="btn secondary btn-sm" style="width:100%;margin-top:14px;" onclick="closeModal()">閉じる</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* =======================================================
+   CHARACTER DATA (15体)
+======================================================= */
+const CHARS = [
+  {id:'pyro',     name:'炎術士',    role:'火力',     attr:'火',   color:'#ff5500', hp:120, spd:3.2,
+   normal: {name:'火球',        desc:'直線火球。命中で燃焼付与（継続ダメージ）。',      dmg:18,  cd:0.4,  range:300},
+   special:{name:'火線掃射',    desc:'前方に3本の火線を同時射出。',                    dmg:35,  cd:6,    range:350},
+   passive:{name:'燃焼',        desc:'通常命中で燃焼付与。1秒ごとに5ダメージ×3秒。'},
+   ultra:  {name:'大炎獄',      desc:'巨大炎柱召喚。範囲内全敵に大ダメージ。',         dmg:120, cd:25}},
+
+  {id:'cryo',     name:'氷結師',    role:'妨害',     attr:'氷',   color:'#44ddff', hp:100, spd:2.8,
+   normal: {name:'氷弾',        desc:'命中した敵をわずかに減速させる。',               dmg:14,  cd:0.5,  range:320},
+   special:{name:'冷気爆発',    desc:'周囲に冷気を爆発。近くの敵を一時凍結。',         dmg:40,  cd:8,    range:200},
+   passive:{name:'減速',        desc:'被弾した敵の移動速度を1.5秒間15%低下。'},
+   ultra:  {name:'絶対零度',    desc:'フィールド全体の敵を3秒間凍結。',               dmg:80,  cd:28}},
+
+  {id:'wind',     name:'風刃使い',  role:'機動',     attr:'風',   color:'#88ff66', hp:95,  spd:4.2,
+   normal: {name:'風刃',        desc:'高速の風刃。連射速度が高い。',                   dmg:12,  cd:0.3,  range:260},
+   special:{name:'旋風突進',    desc:'風をまとい突進。当たった敵に大ダメージ。',       dmg:45,  cd:7,    range:250},
+   passive:{name:'疾風',        desc:'移動速度が常時10%上昇。'},
+   ultra:  {name:'台風乱舞',    desc:'巨大台風で周囲の敵を引き寄せダメージ。',        dmg:90,  cd:22}},
+
+  {id:'terra',    name:'大地守',    role:'防御',     attr:'土',   color:'#cc8833', hp:160, spd:2.4,
+   normal: {name:'岩弾',        desc:'重い岩投擲。遅いが高ダメージ。',                dmg:22,  cd:0.8,  range:280},
+   special:{name:'石壁生成',    desc:'前方に石壁を生成。弾を遮断する。',              dmg:0,   cd:10,   range:150},
+   passive:{name:'岩肌',        desc:'被ダメージを常時8%軽減。'},
+   ultra:  {name:'地割れ衝撃波',desc:'前方広範囲に衝撃波。敵を吹き飛ばし大ダメージ。',dmg:130, cd:26}},
+
+  {id:'bolt',     name:'雷走者',    role:'瞬間火力', attr:'雷',   color:'#88aaff', hp:105, spd:3.6,
+   normal: {name:'電撃',        desc:'素早い電撃を2本同時射出。',                     dmg:16,  cd:0.35, range:340},
+   special:{name:'連鎖雷',      desc:'敵から周囲の敵へ連鎖する雷。',                  dmg:38,  cd:7,    range:300},
+   passive:{name:'加速',        desc:'攻撃後0.5秒間、移動速度が20%上昇。'},
+   ultra:  {name:'天雷落とし',  desc:'全マップ追尾型の落雷を3連発。',                dmg:110, cd:24}},
+
+  {id:'lux',      name:'光導師',    role:'支援',     attr:'光',   color:'#ffffaa', hp:90,  spd:3.0,
+   normal: {name:'光弾',        desc:'命中範囲が広い光の弾。',                        dmg:13,  cd:0.5,  range:360},
+   special:{name:'回復光',      desc:'味方一人のHPを40回復。',                        dmg:-40, cd:9,    range:300},
+   passive:{name:'加護',        desc:'自分の回復効果が15%増加。'},
+   ultra:  {name:'聖光円環',    desc:'味方全員HP+60、敵全員に60ダメージ。',           dmg:60,  cd:30}},
+
+  {id:'dark',     name:'闇喰い',    role:'妨害',     attr:'闇',   color:'#9933cc', hp:115, spd:3.1,
+   normal: {name:'黒弾',        desc:'命中で視界を一時的に暗くする。',                dmg:15,  cd:0.45, range:290},
+   special:{name:'影吸収',      desc:'周囲の敵HPを吸収して自回復。',                  dmg:30,  cd:8,    range:180},
+   passive:{name:'暗闇耐性',    desc:'近距離では毎秒2HP自動回復。'},
+   ultra:  {name:'無明の穴',    desc:'暗黒の穴で引き込んだ敵に大ダメージ。',          dmg:115, cd:27}},
+
+  {id:'shade',    name:'影歩き',    role:'暗殺',     attr:'影',   color:'#bb77ff', hp:90,  spd:3.8,
+   normal: {name:'短刃',        desc:'素早い連続斬り。射程は短め。',                  dmg:11,  cd:0.25, range:130},
+   special:{name:'影移動',      desc:'短距離テレポート。目的地の敵にダメージ。',       dmg:35,  cd:6,    range:200},
+   passive:{name:'背後強化',    desc:'背後からの攻撃が1.5倍になる。'},
+   ultra:  {name:'夜襲連撃',    desc:'5連続高速突進攻撃。',                           dmg:25,  cd:20}},
+
+  {id:'summon',   name:'召喚師',    role:'展開',     attr:'霊',   color:'#44eebb', hp:100, spd:2.9,
+   normal: {name:'霊弾',        desc:'霊エネルギーの弾。',                            dmg:14,  cd:0.5,  range:300},
+   special:{name:'使い魔召喚',  desc:'戦闘する使い魔を2体召喚（15秒）。',             dmg:15,  cd:12,   range:0},
+   passive:{name:'召喚延長',    desc:'召喚物の持続時間が3秒延長。'},
+   ultra:  {name:'大群召喚',    desc:'5体の使い魔を30秒間召喚。',                    dmg:20,  cd:32}},
+
+  {id:'cannon',   name:'砲撃師',    role:'射程',     attr:'爆',   color:'#ff8800', hp:110, spd:2.6,
+   normal: {name:'爆裂弾',      desc:'着弾点周囲にも爆発ダメージ。',                  dmg:20,  cd:0.7,  range:400},
+   special:{name:'貫通砲',      desc:'複数の敵を貫く強力な貫通弾。',                  dmg:55,  cd:9,    range:500},
+   passive:{name:'遠距離強化',  desc:'遠い敵ほどダメージ増加（最大+25%）。'},
+   ultra:  {name:'要塞破壊砲',  desc:'超巨大砲弾一発。広範囲・最大破壊力。',          dmg:150, cd:28}},
+
+  {id:'knight',   name:'盾騎士',    role:'耐久',     attr:'盾',   color:'#ddddee', hp:180, spd:2.3,
+   normal: {name:'盾打ち',      desc:'盾で殴る近接攻撃。ノックバックあり。',           dmg:18,  cd:0.6,  range:120},
+   special:{name:'守護壁',      desc:'前方に5秒間バリアを展開。',                     dmg:0,   cd:10,   range:0},
+   passive:{name:'ガード',      desc:'ガード中の被ダメージを30%減少。'},
+   ultra:  {name:'不落の盾陣',  desc:'全方向に盾展開。10秒間無敵状態。',              dmg:0,   cd:35}},
+
+  {id:'doc',      name:'呪医',      role:'回復',     attr:'呪/治',color:'#88ff99', hp:95,  spd:3.0,
+   normal: {name:'呪符',        desc:'命中で毒ダメージを与える呪符。',                dmg:12,  cd:0.5,  range:280},
+   special:{name:'解除の波',    desc:'味方の状態異常解除＋HP30回復。',                dmg:-30, cd:8,    range:250},
+   passive:{name:'追加回復',    desc:'味方を回復するたびに追加5HP回復。'},
+   ultra:  {name:'再生の儀',    desc:'味方全員HP80回復、全状態異常解除。',            dmg:-80, cd:32}},
+
+  {id:'rune',     name:'ルーン学者',role:'技術',     attr:'ルーン',color:'#ffdd55',hp:100, spd:3.0,
+   normal: {name:'解析符',      desc:'命中で相手のCDが増加するルーン弾。',            dmg:13,  cd:0.45, range:310},
+   special:{name:'刻印強化',    desc:'次の攻撃のダメージを2倍にする刻印。',           dmg:0,   cd:7,    range:0},
+   passive:{name:'リチャージ',  desc:'全スキルのCD10%短縮。'},
+   ultra:  {name:'古代ルーン起動',desc:'フィールド全体のスキルCDをリセット。',        dmg:60,  cd:30}},
+
+  {id:'berserker',name:'狂戦士',    role:'近接',     attr:'斬',   color:'#dd1122', hp:140, spd:3.5,
+   normal: {name:'斬撃',        desc:'力強い近接斬撃。非常に高威力。',                dmg:24,  cd:0.4,  range:120},
+   special:{name:'突進斬',      desc:'猛スピードで突進し切り飛ばす。',                dmg:55,  cd:6,    range:280},
+   passive:{name:'低HP強化',    desc:'HP半分以下で攻撃力が30%上昇。'},
+   ultra:  {name:'狂乱崩し',    desc:'周囲全体に連続斬撃で吹き飛ばす。',             dmg:30,  cd:20}},
+
+  {id:'chrono',   name:'時詠み',    role:'トリッキー',attr:'時間', color:'#99ccff', hp:95,  spd:3.2,
+   normal: {name:'時針弾',      desc:'命中で時間が遅くなる時計針弾。',                dmg:13,  cd:0.5,  range:300},
+   special:{name:'スロウフィールド',desc:'5秒間の遅延エリアを設置。',                 dmg:5,   cd:8,    range:200},
+   passive:{name:'時間効率',    desc:'全スキルのCD0.5秒短縮。'},
+   ultra:  {name:'一瞬停止',    desc:'全ての敵を2秒間完全停止させる。',               dmg:50,  cd:30}},
+];
+
+// レベル管理
+const charMeta = {};
+CHARS.forEach(c => { charMeta[c.id] = { lv: 1, exp: 0 }; });
+
+/* =======================================================
+   GAME STATE
+======================================================= */
+const ST = {
+  name: '',
+  equipped: null,   // 装備中のキャラ
+  selected: null,   // 選択中（ハイライト）
+  roomCode: '',
+  isHost: false,
+  myId: 'p1',
+  players: [],      // {id,name,char,team,isHost,cpu,kills,deaths}
+  round: 1,
+  scores: { red:0, blue:0 },
+};
+
+/* =======================================================
+   SCREEN MANAGER
+======================================================= */
+let curScreen = 'title';
+
+function goScreen(id) {
+  if (id === curScreen) return;
+  const from = document.getElementById(curScreen);
+  const to   = document.getElementById(id);
+  if (!to) return;
+  from.classList.remove('active');
+  curScreen = id;
+  to.classList.add('active', 'scr-in');
+  requestAnimationFrame(() => setTimeout(() => to.classList.remove('scr-in'), 320));
+}
+
+/* =======================================================
+   TITLE
+======================================================= */
+function goToName() {
+  goScreen('nameInput');
+  setTimeout(() => document.getElementById('pname-in').focus(), 150);
+}
+
+/* =======================================================
+   NAME INPUT
+======================================================= */
+function confirmName() {
+  const v = document.getElementById('pname-in').value.trim();
+  if (!v) { alert('名前を入力してください'); return; }
+  ST.name = v;
+  goScreen('roomSelect');
+}
+
+/* Enter key support */
+document.getElementById('pname-in').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmName();
+});
+
+/* =======================================================
+   ROOM SELECT
+======================================================= */
+function createRoom() {
+  ST.roomCode = Math.random().toString(36).substr(2, 6).toUpperCase();
+  ST.isHost = true;
+  ST.myId = 'p1';
+  ST.players = [];
+  openCharSelect();
+}
+
+function joinRoom() {
+  const c = document.getElementById('join-code').value.trim().toUpperCase();
+  if (c.length < 4) { alert('コードを入力してください'); return; }
+  ST.roomCode = c;
+  ST.isHost = false;
+  ST.myId = 'p' + Date.now();
+  ST.players = [];
+  openCharSelect();
+}
+
+/* =======================================================
+   CHAR SELECT
+======================================================= */
+function openCharSelect() {
+  ST.selected = ST.equipped;
+  renderCharGrid();
+  goScreen('charSelect');
+  refreshSelLabel();
+}
+
+function goToCharSelect() {
+  ST.selected = ST.equipped;
+  renderCharGrid();
+  goScreen('charSelect');
+  refreshSelLabel();
+}
+
+function refreshSelLabel() {
+  document.getElementById('cs-sel-label').textContent =
+    ST.equipped ? ST.equipped.name + ' ✓' : '未装備';
+}
+
+function renderCharGrid() {
+  const grid = document.getElementById('cs-grid');
+  grid.innerHTML = '';
+
+  CHARS.forEach(ch => {
+    const lv = charMeta[ch.id].lv;
+    const isSel = ST.equipped && ST.equipped.id === ch.id;
+
+    const card = document.createElement('div');
+    card.className = 'cc' + (isSel ? ' sel' : '');
+    card.dataset.cid = ch.id;
+
+    // カード本体タップ → 選択
+    card.addEventListener('pointerup', e => {
+      if (e.target.closest('.cb')) return;
+      doSelect(ch.id);
+    });
+
+    card.innerHTML =
+      `<div class="cc-orb" style="background:radial-gradient(circle,${ch.color},${ch.color}55);
+        box-shadow:0 0 10px ${ch.color};"></div>` +
+      `<div class="cc-name">${ch.name}</div>` +
+      `<div class="cc-role">${ch.role}</div>` +
+      `<div class="cc-attr" style="color:${ch.color};">⬤ ${ch.attr} &nbsp;Lv.${lv}</div>` +
+      `<div class="cc-spells">${ch.normal.name} / ${ch.special.name}</div>` +
+      `<div class="cc-btns">` +
+        `<button class="cb primary"   data-cid="${ch.id}" data-act="equip">装備</button>` +
+        `<button class="cb secondary" data-cid="${ch.id}" data-act="detail">詳細</button>` +
+      `</div>`;
+
+    grid.appendChild(card);
+  });
+
+  // ボタンイベントをグリッドに委譲
+  grid.addEventListener('pointerup', e => {
+    const btn = e.target.closest('button.cb[data-act]');
+    if (!btn) return;
+    e.stopPropagation();
+    const id  = btn.dataset.cid;
+    const act = btn.dataset.act;
+    if (act === 'equip')  doEquip(id);
+    if (act === 'detail') showDetail(id);
+  }, { capture: true });
+}
+
+function doSelect(id) {
+  ST.selected = CHARS.find(c => c.id === id) || null;
+  document.querySelectorAll('.cc').forEach(el =>
+    el.classList.toggle('sel', el.dataset.cid === id));
+}
+
+function doEquip(id) {
+  const ch = CHARS.find(c => c.id === id);
+  if (!ch) return;
+  ST.equipped = ch;
+  ST.selected = ch;
+  document.querySelectorAll('.cc').forEach(el =>
+    el.classList.toggle('sel', el.dataset.cid === id));
+  refreshSelLabel();
+  // 光のフィードバック
+  const card = document.querySelector(`.cc[data-cid="${id}"]`);
+  if (card) {
+    card.style.boxShadow = `0 0 22px ${ch.color}, 0 0 6px ${ch.color}`;
+    setTimeout(() => card.style.boxShadow = '', 550);
+  }
+}
+
+function showDetail(id) {
+  const ch = CHARS.find(c => c.id === id);
+  if (!ch) return;
+  const meta = charMeta[ch.id];
+
+  document.getElementById('m-title').textContent = `${ch.name} ─ ${ch.role}`;
+  document.getElementById('m-orb').style.cssText =
+    `background:radial-gradient(circle,${ch.color},${ch.color}33);
+     box-shadow:0 0 18px ${ch.color};`;
+
+  document.getElementById('m-body').innerHTML =
+    `<div class="stat-line"><span>属性</span><span style="color:${ch.color}">${ch.attr}</span></div>` +
+    `<div class="stat-line"><span>HP</span><span>${ch.hp}</span></div>` +
+    `<div class="stat-line"><span>移動速度</span><span>${ch.spd}</span></div>` +
+    `<div class="stat-line"><span>レベル</span><span style="color:var(--gold)">Lv.${meta.lv}</span></div>` +
+    `<div class="stat-line" style="margin-bottom:12px"><span>EXP</span>
+       <span>${meta.exp} / ${meta.lv * 100}</span></div>` +
+    spellCard('通常攻撃', ch.normal) +
+    spellCard('必殺技',   ch.special) +
+    `<div class="spell-card">
+       <div class="spell-tag">パッシブ</div>
+       <div class="spell-name">${ch.passive.name}</div>
+       <div class="spell-desc">${ch.passive.desc}</div>
+     </div>` +
+    spellCard('超必殺', ch.ultra);
+
+  document.getElementById('detail-modal').classList.add('open');
+}
+
+function spellCard(label, sk) {
+  const dmgStr = sk.dmg === undefined ? '─' :
+                 sk.dmg < 0  ? `回復 ${Math.abs(sk.dmg)}` : `${sk.dmg}`;
+  const cdStr  = sk.cd !== undefined ? `CD:${sk.cd}s` : '';
+  const rStr   = sk.range ? `射程:${sk.range}px` : '';
+  return `<div class="spell-card">
+    <div class="spell-tag">${label}</div>
+    <div class="spell-name">${sk.name}</div>
+    <div class="spell-desc">${sk.desc}
+      ${dmgStr !== '─' ? `<br>DMG:${dmgStr}` : ''}
+      ${cdStr ? ' &nbsp;' + cdStr : ''}
+      ${rStr  ? ' &nbsp;' + rStr  : ''}
+    </div>
+  </div>`;
+}
+
+function closeModal() {
+  document.getElementById('detail-modal').classList.remove('open');
+}
+// モーダル外タップで閉じる
+document.getElementById('detail-modal').addEventListener('pointerup', e => {
+  if (e.target === document.getElementById('detail-modal')) closeModal();
+});
+
+function confirmChar() {
+  if (!ST.equipped && !ST.selected) {
+    alert('キャラクターを装備してください！');
+    return;
+  }
+  if (!ST.equipped) ST.equipped = ST.selected;
+  setupLobby();
+  goScreen('lobby');
+}
+
+/* =======================================================
+   LOBBY
+======================================================= */
+function setupLobby() {
+  document.getElementById('lob-code').textContent = ST.roomCode;
+  const me = ST.players.find(p => p.id === ST.myId);
+  if (!me) {
+    ST.players.push({
+      id: ST.myId, name: ST.name, char: ST.equipped,
+      team: 'red', isHost: ST.isHost, cpu: false, kills: 0, deaths: 0,
+    });
+  } else {
+    me.char = ST.equipped;
+    me.name = ST.name;
+  }
+  renderLobby();
+}
+
+function renderLobby() {
+  const list = document.getElementById('lob-list');
+  list.innerHTML = '';
+
+  ST.players.forEach(p => {
+    const col = p.char ? p.char.color : '#888';
+    const row = document.createElement('div');
+    row.className = 'p-row';
+    row.innerHTML =
+      `<div class="p-orb" style="background:radial-gradient(circle,${col},${col}44);box-shadow:0 0 7px ${col};"></div>` +
+      `<div class="p-info">` +
+        `<div class="p-name">${p.name}` +
+          (p.isHost ? '<span class="p-tag tag-host">HOST</span>' : '') +
+          (p.cpu    ? '<span class="p-tag tag-cpu">CPU</span>'  : '') +
+        `</div>` +
+        `<div class="p-char">${p.char ? p.char.name : '未選択'}</div>` +
+      `</div>` +
+      `<div class="team-tog">` +
+        `<button class="tr${p.team === 'red'  ? ' on' : ''}" data-pid="${p.id}" data-team="red">赤</button>` +
+        `<button class="tb${p.team === 'blue' ? ' on' : ''}" data-pid="${p.id}" data-team="blue">青</button>` +
+      `</div>`;
+    list.appendChild(row);
+  });
+
+  // チーム切り替えを委譲
+  list.addEventListener('pointerup', e => {
+    const btn = e.target.closest('button[data-team]');
+    if (!btn) return;
+    setTeam(btn.dataset.pid, btn.dataset.team);
+  }, { capture: true, once: true });
+
+  document.getElementById('lob-cnt').textContent = ST.players.length;
+  document.getElementById('lob-st').textContent  =
+    ST.isHost ? '待機中' : 'ホスト待機中';
+
+  const sb  = document.getElementById('start-btn');
+  const red  = ST.players.filter(p => p.team === 'red').length;
+  const blue = ST.players.filter(p => p.team === 'blue').length;
+  const canStart = red > 0 && blue > 0 && ST.players.length >= 2;
+
+  if (ST.isHost) {
+    sb.style.display = '';
+    sb.disabled      = !canStart;
+    sb.style.opacity = canStart ? '1' : '0.5';
+  } else {
+    sb.style.display = 'none';
+  }
+}
+
+function setTeam(pid, team) {
+  const p = ST.players.find(x => x.id === pid);
+  if (p) p.team = team;
+  renderLobby();
+}
+
+function addCPU() {
+  if (ST.players.length >= 8) { alert('最大8人です'); return; }
+  const taken = new Set(ST.players.map(p => p.char?.id));
+  const avail = CHARS.filter(c => !taken.has(c.id));
+  const ch    = avail[Math.floor(Math.random() * avail.length)] || CHARS[0];
+  const cpuN  = ST.players.filter(p => p.cpu).length;
+  const team  = ST.players.filter(p => p.team === 'red').length <=
+                ST.players.filter(p => p.team === 'blue').length ? 'red' : 'blue';
+  ST.players.push({
+    id: 'cpu' + Date.now(), name: 'CPU' + (cpuN + 1),
+    char: ch, team, isHost: false, cpu: true, kills: 0, deaths: 0,
+  });
+  renderLobby();
+}
+
+function leaveRoom() {
+  if (ST.isHost && ST.players.length > 1 &&
+      !confirm('ホストが退出すると部屋が解散します。よろしいですか？')) return;
+  ST.players = [];
+  goScreen('roomSelect');
+}
+
+function startGame() {
+  const red  = ST.players.filter(p => p.team === 'red');
+  const blue = ST.players.filter(p => p.team === 'blue');
+  if (!red.length || !blue.length) { alert('両チームに1人以上必要です'); return; }
+  ST.round  = 1;
+  ST.scores = { red: 0, blue: 0 };
+  showIntro(() => initBattle());
+}
+
+/* =======================================================
+   INTRO
+======================================================= */
+function showIntro(cb) {
+  const red  = ST.players.filter(p => p.team === 'red');
+  const blue = ST.players.filter(p => p.team === 'blue');
+
+  function memberHTML(p) {
+    const col = p.char?.color || '#888';
+    return `<div class="i-member">
+      <div class="i-orb" style="background:${col};box-shadow:0 0 7px ${col};"></div>
+      <div class="i-mname" style="color:${col}">${p.name}</div>
+    </div>`;
+  }
+
+  document.getElementById('i-red').innerHTML =
+    `<div style="font-size:11px;color:#ff6677;letter-spacing:2px;margin-bottom:8px;">RED TEAM</div>` +
+    red.map(memberHTML).join('');
+  document.getElementById('i-blue').innerHTML =
+    `<div style="font-size:11px;color:#66aaff;letter-spacing:2px;margin-bottom:8px;">BLUE TEAM</div>` +
+    blue.map(memberHTML).join('');
+
+  const rl = document.getElementById('round-label');
+  rl.style.display = 'none';
+
+  goScreen('intro');
+
+  setTimeout(() => {
+    rl.textContent   = 'ROUND ' + ST.round;
+    rl.style.display = '';
+    setTimeout(() => { rl.style.display = 'none'; if (cb) cb(); }, 1700);
+  }, 2200);
+}
+
+/* =======================================================
+   BATTLE ENGINE
+======================================================= */
+const B = {
+  canvas: null, ctx: null,
+  mcanvas: null, mctx: null,
+  W: 0, H: 0,
+  MAP_W: 1200, MAP_H: 900,
+  entities: [], bullets: [], particles: [],
+  myEnt: null,
+  running: false, raf: null, tick: 0,
+  timerLeft: 120,
+  walls: [], bushes: [],
+  camX: 0, camY: 0,
+  stickActive: false, stickPid: null,
+  stickOX: 0, stickOY: 0, stickDX: 0, stickDY: 0,
+  shakeX: 0, shakeY: 0, shakeDur: 0,
+};
+
+/* MAP */
+function buildMap() {
+  B.walls = [];
+  B.bushes = [];
+  // 外壁
+  B.walls.push(
+    { x: 0,           y: 0,           w: B.MAP_W, h: 16 },
+    { x: 0,           y: B.MAP_H - 16,w: B.MAP_W, h: 16 },
+    { x: 0,           y: 0,           w: 16, h: B.MAP_H },
+    { x: B.MAP_W - 16,y: 0,           w: 16, h: B.MAP_H },
+  );
+  // 内部壁
+  B.walls.push(
+    { x: 200, y: 170, w: 80, h: 200 },
+    { x: 920, y: 170, w: 80, h: 200 },
+    { x: 200, y: 530, w: 80, h: 200 },
+    { x: 920, y: 530, w: 80, h: 200 },
+    { x: 530, y: 290, w: 140, h: 80 },
+    { x: 530, y: 530, w: 140, h: 80 },
+    { x: 380, y: 400, w: 60,  h: 100 },
+    { x: 760, y: 400, w: 60,  h: 100 },
+  );
+  // 草むら
+  B.bushes = [
+    { x: 120, y: 120, w: 120, h: 80 },
+    { x: 960, y: 120, w: 120, h: 80 },
+    { x: 120, y: 700, w: 120, h: 80 },
+    { x: 960, y: 700, w: 120, h: 80 },
+    { x: 530, y: 155, w: 140, h: 60 },
+    { x: 530, y: 685, w: 140, h: 60 },
+    { x: 350, y: 390, w: 80,  h: 80 },
+    { x: 770, y: 390, w: 80,  h: 80 },
+  ];
+}
+
+/* ENTITY FACTORY */
+function mkEnt(p, sx, sy) {
+  return {
+    id: p.id, name: p.name, char: p.char, team: p.team, cpu: p.cpu,
+    x: sx, y: sy, dir: 0, vx: 0, vy: 0,
+    hp: p.char.hp, maxHp: p.char.hp,
+    dead: false, respTimer: 0,
+    ncd: 0, scd: 0,
+    burning: false, burnT: 0,
+    frozen: false,  frozenT: 0,
+    slowed: false,  slowT: 0,
+    ultraGauge: 0,
+    kills: 0, deaths: 0,
+    aiT: null, aiCd: 0, aiMX: 0, aiMY: 0,
+  };
+}
+
+/* INIT BATTLE */
+function initBattle() {
+  B.canvas  = document.getElementById('bcanvas');
+  B.ctx     = B.canvas.getContext('2d');
+  B.mcanvas = document.getElementById('mmap');
+  B.mctx    = B.mcanvas.getContext('2d');
+  resizeB();
+  window.addEventListener('resize', resizeB);
+  buildMap();
+
+  const red  = ST.players.filter(p => p.team === 'red');
+  const blue = ST.players.filter(p => p.team === 'blue');
+  B.entities = [];
+  red.forEach ((p, i) => B.entities.push(mkEnt(p, 180 + i * 60, B.MAP_H / 2 - 40)));
+  blue.forEach((p, i) => B.entities.push(mkEnt(p, B.MAP_W - 180 - i * 60, B.MAP_H / 2 + 40)));
+  B.myEnt   = B.entities.find(e => e.id === ST.myId) || B.entities[0];
+  B.bullets = []; B.particles = [];
+  B.tick    = 0;  B.timerLeft = 120;
+  B.camX    = 0;  B.camY = 0;
+  B.running = true;
+
+  bindStick();
+  buildHpBars();
+  buildSkillBtns();
+  goScreen('battle');
+
+  if (B.raf) cancelAnimationFrame(B.raf);
+  let lt = 0;
+  function loop(ts) {
+    if (!B.running) return;
+    const dt = Math.min((ts - lt) / 16.667, 3);
+    lt = ts;
+    B.tick++;
+    updateB(dt);
+    renderB();
+    updateHUD();
+    B.raf = requestAnimationFrame(loop);
+  }
+  B.raf = requestAnimationFrame(loop);
+}
+
+function resizeB() {
+  B.canvas.width  = window.innerWidth;
+  B.canvas.height = window.innerHeight;
+  B.W = B.canvas.width;
+  B.H = B.canvas.height;
+}
+
+/* JOYSTICK */
+function bindStick() {
+  const sz = document.getElementById('stick-zone');
+  sz.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    const r = sz.getBoundingClientRect();
+    B.stickActive = true;
+    B.stickPid    = e.pointerId;
+    B.stickOX     = r.left + r.width  / 2;
+    B.stickOY     = r.top  + r.height / 2;
+    mvStick(e.clientX, e.clientY);
+  }, { passive: false });
+
+  window.addEventListener('pointermove', e => {
+    if (!B.stickActive || e.pointerId !== B.stickPid) return;
+    mvStick(e.clientX, e.clientY);
+  });
+
+  window.addEventListener('pointerup', e => {
+    if (e.pointerId !== B.stickPid) return;
+    B.stickActive = false;
+    B.stickDX = 0; B.stickDY = 0;
+    document.getElementById('stick-knob').style.transform = 'translate(-50%,-50%)';
+  });
+}
+
+function mvStick(cx, cy) {
+  let dx = cx - B.stickOX, dy = cy - B.stickOY;
+  const len = Math.hypot(dx, dy), max = 40;
+  if (len > max) { dx = dx / len * max; dy = dy / len * max; }
+  B.stickDX = dx / max;
+  B.stickDY = dy / max;
+  document.getElementById('stick-knob').style.transform =
+    `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+}
+
+/* HP BARS */
+function buildHpBars() {
+  const rEl = document.getElementById('hp-red');
+  const bEl = document.getElementById('hp-blue');
+  rEl.innerHTML = '';
+  bEl.innerHTML = '';
+  B.entities.filter(e => e.team === 'red').forEach(e => {
+    rEl.innerHTML +=
+      `<div class="hp-bar-row">
+        <div class="hp-lbl" style="color:${e.char.color}">${e.name}</div>
+        <div class="hp-track"><div class="hp-fill" id="hpf_${e.id}" style="width:100%;background:${e.char.color}"></div></div>
+      </div>`;
+  });
+  B.entities.filter(e => e.team === 'blue').forEach(e => {
+    bEl.innerHTML +=
+      `<div class="hp-bar-row" style="align-items:flex-end">
+        <div class="hp-lbl" style="color:${e.char.color}">${e.name}</div>
+        <div class="hp-track"><div class="hp-fill" id="hpf_${e.id}" style="width:100%;background:${e.char.color}"></div></div>
+      </div>`;
+  });
+}
+
+/* SKILL BUTTONS */
+function buildSkillBtns() {
+  const sw = document.getElementById('skills-wrap');
+  const me = B.myEnt;
+  if (!me) return;
+  const ch = me.char;
+  sw.innerHTML =
+    `<div class="skill-row">
+       <button class="skbtn sk-u" id="bU"
+         style="background:radial-gradient(circle,${ch.color}44,#000);border-color:${ch.color}99;"
+         onpointerdown="useSkill('ultra')">
+         ${ch.ultra.name}<br><span style="font-size:8px;color:${ch.color}">超必殺</span>
+       </button>
+     </div>
+     <div class="skill-row">
+       <button class="skbtn sk-s" id="bS"
+         style="background:radial-gradient(circle,${ch.color}33,#000);border-color:${ch.color}66;"
+         onpointerdown="useSkill('special')">
+         ${ch.special.name}<br><span style="font-size:8px">必殺</span>
+       </button>
+       <button class="skbtn sk-n" id="bN"
+         style="background:radial-gradient(circle,${ch.color}55,#111);border-color:${ch.color};"
+         onpointerdown="useSkill('normal')">
+         ${ch.normal.name}<br><span style="font-size:8px">通常</span>
+       </button>
+     </div>`;
+}
+
+function useSkill(type) {
+  const me = B.myEnt;
+  if (!me || me.dead || me.frozen) return;
+  if (type === 'normal'  && me.ncd > 0)          return;
+  if (type === 'special' && me.scd > 0)          return;
+  if (type === 'ultra'   && me.ultraGauge < 100) return;
+  fireSkill(me, type);
+}
+
+/* FIRE SKILL */
+function fireSkill(ent, type) {
+  const ch = ent.char;
+  if (type === 'normal') {
+    ent.ncd = ch.normal.cd;
+    spawnBullet(ent, ch.normal.dmg, ch.normal.range, ch.color, 8, 7);
+    spawnFX(ent.x, ent.y, ch.color, 5);
+  } else if (type === 'special') {
+    ent.scd = ch.special.cd;
+    if (ch.special.dmg < 0) {
+      // ヒール
+      const allies = B.entities.filter(e => e.team === ent.team && e !== ent && !e.dead);
+      if (allies.length) {
+        const t = allies[0 | Math.random() * allies.length];
+        t.hp = Math.min(t.maxHp, t.hp + Math.abs(ch.special.dmg));
+      }
+    } else if (ch.special.dmg === 0) {
+      spawnFX(ent.x, ent.y, ch.color, 12);
+    } else {
+      spawnBullet(ent, ch.special.dmg, ch.special.range, ch.color, 14, 9);
+      spawnFX(ent.x, ent.y, ch.color, 18);
+      shk(5);
+    }
+  } else if (type === 'ultra' && ent.ultraGauge >= 100) {
+    ent.ultraGauge = 0;
+    doFlash(ch.color);
+    shk(12);
+    spawnFX(ent.x, ent.y, ch.color, 50);
+    if (ch.ultra.dmg < 0) {
+      B.entities.filter(e => e.team === ent.team && !e.dead)
+        .forEach(e => { e.hp = Math.min(e.maxHp, e.hp + Math.abs(ch.ultra.dmg)); });
+    } else {
+      B.entities.filter(e => e.team !== ent.team && !e.dead)
+        .forEach(e => dealDmg(e, ch.ultra.dmg * (0.8 + Math.random() * 0.4), ent));
+    }
+  }
+}
+
+function spawnBullet(ent, d, range, col, sz, spd) {
+  B.bullets.push({
+    x: ent.x, y: ent.y,
+    vx: Math.cos(ent.dir) * spd,
+    vy: Math.sin(ent.dir) * spd,
+    owner: ent, team: ent.team,
+    dmg: d, color: col, size: sz,
+    life: range / spd, maxLife: range / spd,
+  });
+}
+
+function spawnFX(x, y, col, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = 1.5 + Math.random() * 3;
+    B.particles.push({
+      x, y,
+      vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      life: 25 + Math.random() * 30,
+      color: col, sz: 2 + Math.random() * 3,
+    });
+  }
+}
+
+function shk(m) { B.shakeX = m; B.shakeY = m; B.shakeDur = 14; }
+
+function doFlash(col = '#fff', a = 0.55) {
+  const f = document.getElementById('b-flash');
+  f.style.background = col;
+  f.style.opacity    = a;
+  setTimeout(() => f.style.opacity = 0, 170);
+}
+
+function dealDmg(target, d, attacker) {
+  if (target.dead) return;
+  // パッシブ補正
+  if (target.char.id   === 'terra')      d *= 0.92;
+  if (attacker?.char.id === 'berserker' &&
+      attacker.hp < attacker.maxHp / 2)  d *= 1.3;
+  // ステータス付与
+  if (attacker?.char.id === 'pyro')   { target.burning = true; target.burnT  = 180; }
+  if (attacker?.char.id === 'cryo')   { target.slowed  = true; target.slowT  = 90;  }
+  if (attacker?.char.id === 'chrono') { target.slowed  = true; target.slowT  = 120; }
+
+  target.hp = Math.max(0, target.hp - d);
+  if (attacker) attacker.ultraGauge = Math.min(100, attacker.ultraGauge + d * 0.5);
+  spawnFX(target.x, target.y, '#fff', 4);
+  if (target.hp <= 0) killEnt(target, attacker);
+}
+
+function killEnt(e, killer) {
+  e.dead = true; e.respTimer = 480; e.deaths++;
+  if (killer) killer.kills++;
+  // 累積統計をST.playersにも反映
+  const sp = ST.players.find(p => p.id === e.id);
+  if (sp) sp.deaths = e.deaths;
+  const kp = killer && ST.players.find(p => p.id === killer.id);
+  if (kp) kp.kills = killer.kills;
+
+  spawnFX(e.x, e.y, e.char.color, 30);
+  doFlash('#ff0000', 0.25);
+  checkRoundEnd();
+}
+
+function checkRoundEnd() {
+  const rA = B.entities.filter(e => e.team === 'red'  && !e.dead).length;
+  const bA = B.entities.filter(e => e.team === 'blue' && !e.dead).length;
+  if (rA === 0 || bA === 0) {
+    setTimeout(() => endRound(rA > 0 ? 'red' : 'blue'), 750);
+  }
+}
+
+function endRound(winner) {
+  B.running = false;
+  cancelAnimationFrame(B.raf);
+  ST.scores[winner] = (ST.scores[winner] || 0) + 1;
+
+  if (ST.scores.red >= 2 || ST.scores.blue >= 2) {
+    endMatch(); return;
+  }
+  ST.round++;
+  // リセット
+  B.entities.forEach(e => {
+    e.dead = false; e.hp = e.maxHp;
+    e.burning = false; e.frozen = false; e.slowed = false;
+  });
+  const redE  = B.entities.filter(e => e.team === 'red');
+  const blueE = B.entities.filter(e => e.team === 'blue');
+  redE.forEach ((e, i) => { e.x = 180 + i * 60;           e.y = B.MAP_H / 2 - 40; });
+  blueE.forEach((e, i) => { e.x = B.MAP_W - 180 - i * 60; e.y = B.MAP_H / 2 + 40; });
+
+  showIntro(() => initBattle());
+}
+
+function endMatch() {
+  showResult(ST.scores.red > ST.scores.blue ? 'red' : 'blue');
+}
+
+/* UPDATE */
+function updateB(dt) {
+  B.timerLeft -= dt / 60;
+  if (B.timerLeft <= 0) {
+    const rA = B.entities.filter(e => e.team === 'red'  && !e.dead).length;
+    const bA = B.entities.filter(e => e.team === 'blue' && !e.dead).length;
+    endRound(rA >= bA ? 'red' : 'blue');
+    return;
+  }
+  if (B.shakeDur > 0) { B.shakeDur--; B.shakeX *= 0.84; B.shakeY *= 0.84; }
+  else { B.shakeX = 0; B.shakeY = 0; }
+
+  B.entities.forEach(e => {
+    if (e.dead) {
+      e.respTimer -= dt;
+      if (e.respTimer <= 0) {
+        e.dead = false; e.hp = e.maxHp;
+        e.burning = false; e.frozen = false; e.slowed = false;
+        spawnFX(e.x, e.y, e.char.color, 20);
+      }
+      return;
+    }
+    // ステータス
+    if (e.burning) {
+      e.burnT -= dt;
+      if (e.burnT <= 0) e.burning = false;
+      else if (B.tick % 60 === 0) {
+        e.hp -= 5;
+        spawnFX(e.x, e.y, '#ff5500', 3);
+        if (e.hp <= 0) killEnt(e, null);
+      }
+    }
+    if (e.frozen)  { e.frozenT -= dt; if (e.frozenT <= 0) e.frozen  = false; }
+    if (e.slowed)  { e.slowT   -= dt; if (e.slowT   <= 0) e.slowed  = false; }
+
+    // クールダウン
+    if (e.ncd > 0) e.ncd -= dt / 60;
+    if (e.scd > 0) e.scd -= dt / 60;
+    e.ultraGauge = Math.min(100, e.ultraGauge + dt * 0.04);
+
+    const spd = e.char.spd * (e.frozen ? 0 : e.slowed ? 0.55 : 1);
+
+    if (e.id === ST.myId) {
+      // プレイヤー操作
+      if (Math.abs(B.stickDX) + Math.abs(B.stickDY) > 0.05) {
+        e.dir = Math.atan2(B.stickDY, B.stickDX);
+        e.vx  = B.stickDX * spd;
+        e.vy  = B.stickDY * spd;
+      } else { e.vx = 0; e.vy = 0; }
+    } else if (e.cpu) {
+      // CPU AI
+      e.aiCd -= dt;
+      if (e.aiCd <= 0) {
+        e.aiCd = 30 + Math.random() * 60;
+        const enemies = B.entities.filter(x => x.team !== e.team && !x.dead);
+        e.aiT = enemies[0 | Math.random() * enemies.length] || null;
+        if (e.aiT) {
+          const dx = e.aiT.x - e.x, dy = e.aiT.y - e.y;
+          const l = Math.hypot(dx, dy) || 1;
+          e.aiMX = dx / l; e.aiMY = dy / l;
+          e.dir  = Math.atan2(dy, dx);
+        }
+      }
+      if (e.aiT && !e.aiT.dead) {
+        const dx = e.aiT.x - e.x, dy = e.aiT.y - e.y;
+        const dist = Math.hypot(dx, dy);
+        e.dir = Math.atan2(dy, dx);
+        if (dist > 90) { e.vx = e.aiMX * spd; e.vy = e.aiMY * spd; }
+        else           { e.vx = 0; e.vy = 0; }
+        if (dist < e.char.normal.range && e.ncd <= 0)           fireSkill(e, 'normal');
+        if (dist < 320 && e.scd <= 0 && Math.random() < 0.022)  fireSkill(e, 'special');
+        if (e.ultraGauge >= 100 && Math.random() < 0.009)        fireSkill(e, 'ultra');
+      } else { e.vx *= 0.9; e.vy *= 0.9; }
+    }
+    moveEnt(e, dt);
+  });
+
+  // 弾
+  B.bullets = B.bullets.filter(b => {
+    b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    if (b.life <= 0) return false;
+    for (const w of B.walls)
+      if (b.x > w.x && b.x < w.x + w.w && b.y > w.y && b.y < w.y + w.h) return false;
+    for (const e of B.entities) {
+      if (e.team === b.team || e.dead) continue;
+      if (Math.hypot(e.x - b.x, e.y - b.y) < 20) {
+        dealDmg(e, b.dmg * (0.85 + Math.random() * 0.3), b.owner);
+        return false;
+      }
+    }
+    return true;
+  });
+
+  // パーティクル
+  B.particles = B.particles.filter(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.91; p.vy *= 0.91;
+    p.life -= dt;
+    return p.life > 0;
+  });
+}
+
+function moveEnt(e, dt) {
+  const r = 16;
+  let nx = e.x + e.vx * dt;
+  let ny = e.y + e.vy * dt;
+  // X軸
+  let hitX = false;
+  for (const w of B.walls)
+    if (nx + r > w.x && nx - r < w.x + w.w && e.y + r > w.y && e.y - r < w.y + w.h)
+      { hitX = true; break; }
+  if (!hitX) e.x = Math.max(24, Math.min(B.MAP_W - 24, nx));
+  // Y軸
+  let hitY = false;
+  for (const w of B.walls)
+    if (e.x + r > w.x && e.x - r < w.x + w.w && ny + r > w.y && ny - r < w.y + w.h)
+      { hitY = true; break; }
+  if (!hitY) e.y = Math.max(24, Math.min(B.MAP_H - 24, ny));
+}
+
+/* RENDER */
+function renderB() {
+  const ctx = B.ctx;
+  const me  = B.myEnt;
+
+  const tX = (me && !me.dead ? me.x : B.MAP_W / 2) - B.W / 2;
+  const tY = (me && !me.dead ? me.y : B.MAP_H / 2) - B.H * 0.52;
+  B.camX += (tX - B.camX) * 0.13;
+  B.camY += (tY - B.camY) * 0.13;
+  B.camX  = Math.max(0, Math.min(B.MAP_W - B.W, B.camX));
+  B.camY  = Math.max(0, Math.min(B.MAP_H - B.H, B.camY));
+
+  const ox = -(B.camX + B.shakeX * (Math.random() - 0.5) * 2);
+  const oy = -(B.camY + B.shakeY * (Math.random() - 0.5) * 2);
+
+  ctx.save();
+  ctx.translate(ox, oy);
+
+  // 背景
+  ctx.fillStyle = '#0d1020';
+  ctx.fillRect(0, 0, B.MAP_W, B.MAP_H);
+
+  // グリッド
+  ctx.strokeStyle = 'rgba(60,60,120,.1)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < B.MAP_W; x += 60) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, B.MAP_H); ctx.stroke();
+  }
+  for (let y = 0; y < B.MAP_H; y += 60) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(B.MAP_W, y); ctx.stroke();
+  }
+
+  // 草むら（下レイヤー）
+  B.bushes.forEach(b => {
+    ctx.fillStyle = 'rgba(16,68,26,.7)';
+    rrect(ctx, b.x, b.y, b.w, b.h, 10); ctx.fill();
+    ctx.strokeStyle = 'rgba(30,100,36,.75)';
+    ctx.lineWidth = 2;
+    rrect(ctx, b.x, b.y, b.w, b.h, 10); ctx.stroke();
+  });
+
+  // 壁
+  B.walls.forEach(w => {
+    ctx.fillStyle = '#181830';
+    ctx.fillRect(w.x, w.y, w.w, w.h);
+    ctx.strokeStyle = 'rgba(80,80,150,.38)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(w.x, w.y, w.w, w.h);
+  });
+
+  // 弾
+  B.bullets.forEach(b => {
+    ctx.save();
+    ctx.globalAlpha = b.life / b.maxLife;
+    ctx.fillStyle   = b.color;
+    ctx.shadowColor = b.color;
+    ctx.shadowBlur  = b.size * 3;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  });
+
+  // パーティクル
+  B.particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.life / 55;
+    ctx.fillStyle   = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur  = p.sz * 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  });
+
+  // エンティティ
+  B.entities.forEach(e => {
+    if (e.dead) return;
+    const inBush = B.bushes.some(b => e.x > b.x && e.x < b.x + b.w && e.y > b.y && e.y < b.y + b.h);
+    const isMe   = e.id === ST.myId;
+    const isAlly = e.team === B.myEnt?.team;
+
+    ctx.save();
+    ctx.globalAlpha = (inBush && !isAlly && !isMe) ? 0.25 : 1;
+
+    const col = e.char.color;
+
+    // 影
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    ctx.beginPath(); ctx.ellipse(e.x, e.y + 18, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+    // 本体
+    ctx.fillStyle  = col;
+    ctx.shadowColor = col;
+    ctx.shadowBlur  = e.burning ? 24 : 9;
+    ctx.beginPath(); ctx.arc(e.x, e.y, 16, 0, Math.PI * 2); ctx.fill();
+
+    // ハイライト
+    ctx.fillStyle = 'rgba(255,255,255,.2)';
+    ctx.beginPath(); ctx.arc(e.x - 4, e.y - 4, 7, 0, Math.PI * 2); ctx.fill();
+
+    // 向き矢印
+    ctx.strokeStyle = 'rgba(255,255,255,.65)';
+    ctx.lineWidth   = 2.5;
+    ctx.shadowBlur  = 0;
+    ctx.beginPath();
+    ctx.moveTo(e.x, e.y);
+    ctx.lineTo(e.x + Math.cos(e.dir) * 23, e.y + Math.sin(e.dir) * 23);
+    ctx.stroke();
+
+    // 状態エフェクト
+    if (e.burning) {
+      ctx.strokeStyle = '#ff5500'; ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#ff5500'; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.arc(e.x, e.y, 21, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (e.frozen) {
+      ctx.strokeStyle = '#44ddff'; ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#44ddff'; ctx.shadowBlur = 14;
+      ctx.beginPath(); ctx.arc(e.x, e.y, 21, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (e.slowed) {
+      ctx.strokeStyle = 'rgba(150,180,255,.5)'; ctx.lineWidth = 1.5; ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.arc(e.x, e.y, 22, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // 名前
+    ctx.shadowBlur = 0;
+    ctx.font       = 'bold 10px sans-serif';
+    ctx.textAlign  = 'center';
+    ctx.fillStyle  = 'rgba(0,0,0,.55)';
+    ctx.fillRect(e.x - 26, e.y - 35, 52, 13);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(e.name, e.x, e.y - 24);
+
+    // HPバー
+    const bw = 42, bx = e.x - 21, by = e.y - 45;
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(bx, by, bw, 5);
+    ctx.fillStyle = col;               ctx.fillRect(bx, by, bw * (e.hp / e.maxHp), 5);
+
+    // ウルトゲージ弧
+    const up = e.ultraGauge / 100;
+    ctx.strokeStyle = up >= 1 ? '#fff' : col + '66';
+    ctx.lineWidth   = 2;
+    ctx.shadowBlur  = up >= 1 ? 8 : 0;
+    ctx.shadowColor = '#fff';
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, 22, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * up);
+    ctx.stroke();
+
+    ctx.restore();
+  });
+
+  ctx.restore();
+  renderMinimap();
+}
+
+function rrect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+function renderMinimap() {
+  const mc = B.mctx, mw = 78, mh = 78;
+  const sx = mw / B.MAP_W, sy = mh / B.MAP_H;
+  mc.clearRect(0, 0, mw, mh);
+  mc.fillStyle = 'rgba(8,8,22,.92)'; mc.fillRect(0, 0, mw, mh);
+  mc.fillStyle = 'rgba(70,70,140,.3)';
+  B.walls.forEach(w => mc.fillRect(w.x * sx, w.y * sy, w.w * sx, w.h * sy));
+  mc.fillStyle = 'rgba(16,65,26,.5)';
+  B.bushes.forEach(b => mc.fillRect(b.x * sx, b.y * sy, b.w * sx, b.h * sy));
+  B.entities.forEach(e => {
+    if (e.dead) return;
+    mc.fillStyle = e.char.color;
+    mc.beginPath();
+    mc.arc(e.x * sx, e.y * sy, e.id === ST.myId ? 3.5 : 2.5, 0, Math.PI * 2);
+    mc.fill();
+  });
+  mc.strokeStyle = 'rgba(255,255,255,.25)'; mc.lineWidth = 1;
+  mc.strokeRect(B.camX * sx, B.camY * sy, B.W * sx, B.H * sy);
+}
+
+/* HUD UPDATE */
+function updateHUD() {
+  const s = Math.max(0, Math.ceil(B.timerLeft));
+  document.getElementById('hud-timer').textContent =
+    `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  document.getElementById('hud-round').textContent = `ROUND ${ST.round}`;
+
+  B.entities.forEach(e => {
+    const el = document.getElementById('hpf_' + e.id);
+    if (el) el.style.width = (e.hp / e.maxHp * 100) + '%';
+  });
+
+  const me = B.myEnt;
+  if (me) {
+    const bn = document.getElementById('bN');
+    const bs = document.getElementById('bS');
+    const bu = document.getElementById('bU');
+    if (bn) bn.classList.toggle('cd', me.ncd > 0);
+    if (bs) bs.classList.toggle('cd', me.scd > 0);
+    if (bu) {
+      bu.classList.toggle('cd', me.ultraGauge < 100);
+      bu.style.opacity = me.ultraGauge >= 100 ? '1' : '0.5';
+    }
+  }
+
+  // リスポーン表示
+  const ro = document.getElementById('respawn-ov');
+  if (B.myEnt && B.myEnt.dead) {
+    ro.classList.add('show');
+    document.getElementById('respawn-cnt').textContent = Math.ceil(B.myEnt.respTimer / 60);
+  } else {
+    ro.classList.remove('show');
+  }
+}
+
+/* =======================================================
+   RESULT
+======================================================= */
+function showResult(winner) {
+  B.running = false;
+  cancelAnimationFrame(B.raf);
+
+  const wc = winner === 'red' ? '#ff3344' : '#2299ff';
+  const wl = winner === 'red' ? '🔴 REDチームの勝利！！' : '🔵 BLUEチームの勝利！！';
+  document.getElementById('res-win').innerHTML = `<span style="color:${wc}">${wl}</span>`;
+
+  const redE  = B.entities.filter(e => e.team === 'red').sort((a, b) => b.kills - a.kills);
+  const blueE = B.entities.filter(e => e.team === 'blue').sort((a, b) => b.kills - a.kills);
+
+  function pRows(ents) {
+    return ents.map(e =>
+      `<div class="res-prow">
+        <div class="res-orb" style="background:${e.char.color};box-shadow:0 0 6px ${e.char.color}"></div>
+        <div class="res-name" style="color:${e.char.color}">${e.name}</div>
+        <div class="res-kd">K×${e.kills} D×${e.deaths}</div>
+      </div>`
+    ).join('');
+  }
+
+  document.getElementById('res-teams').innerHTML =
+    `<div class="res-col">
+       <div class="res-col-head" style="background:rgba(255,51,68,.14);color:#ff3344;">
+         ${winner === 'red' ? 'WIN 🏆' : 'LOSE'} &nbsp;🔴 RED
+       </div>${pRows(redE)}</div>` +
+    `<div class="res-col">
+       <div class="res-col-head" style="background:rgba(34,153,255,.14);color:#2299ff;">
+         ${winner === 'blue' ? 'WIN 🏆' : 'LOSE'} &nbsp;🔵 BLUE
+       </div>${pRows(blueE)}</div>`;
+
+  goScreen('result');
+}
+
+/* =======================================================
+   EXP SCREEN
+======================================================= */
+function goToExp() {
+  const me  = B.entities.find(e => e.id === ST.myId) || B.entities[0];
+  const ch  = me?.char || ST.equipped;
+  const gained = (me?.kills || 0) * 50 + 10;
+  const meta   = charMeta[ch.id];
+  meta.exp    += gained;
+  const need   = meta.lv * 100;
+  const lvUp   = meta.exp >= need;
+  if (lvUp) { meta.lv++; meta.exp -= need; CHARS.find(c => c.id === ch.id).hp += 10; }
+
+  document.getElementById('exp-lv').textContent  = 'Lv.' + meta.lv;
+  document.getElementById('exp-got').textContent  = '+' + gained + ' EXP';
+  document.getElementById('exp-lvup').textContent = lvUp ? '🎉 レベルアップ！ MaxHP +10' : '';
+  goScreen('expScreen');
+  setTimeout(() => {
+    document.getElementById('exp-fill').style.width =
+      Math.min(100, (meta.exp / (meta.lv * 100)) * 100) + '%';
+  }, 320);
+}
+
+function backToLobby() {
+  B.running = false;
+  cancelAnimationFrame(B.raf);
+  ST.round  = 1;
+  ST.scores = { red: 0, blue: 0 };
+  setupLobby();
+  goScreen('lobby');
+}
+</script>
+</body>
+</html>
